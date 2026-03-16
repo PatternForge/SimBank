@@ -2,7 +2,7 @@
 
 **Author:** Ross K
 **Version:** 2.0 (see origin story below)
-**Stack:** Python · LightGBM · PyTorch · Scikit-learn
+**Stack:** Python · dbt · Snowflake · sqlglot · LightGBM · PyTorch · Scikit-learn
 
 -----
 
