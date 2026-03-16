@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: RAW
+    database: SIMBANK
+    schema: RAW
+    tables:
+      - name: RETAIL_DEPOSITS
+      - name: RETAIL_LOANS
+      - name: BUSINESS_DEPOSITS
+      - name: BUSINESS_LOANS
+      - name: FEES_COSTS
+      - name: FTP_INPUTS
+      - name: STRESS_INPUTS
+      - name: SIMULATED_PARAMETERS

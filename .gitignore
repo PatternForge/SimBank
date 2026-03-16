@@ -1,0 +1,16 @@
+ .venv/
+ **/.idea/
+ **/__pycache__/
+ **/sources/
+ **/*.pyc
+ **/*.py[cod]
+ *.csv
+ *.parquet
+ *.log
+ .env
+simbank_dbt/target/
+simbank_dbt/.user.yml
+simbank_dbt/logs/
+.idea/
+simbank_dbt/.idea/
+logs/
