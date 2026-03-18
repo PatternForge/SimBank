@@ -129,7 +129,7 @@ Each staging model follows the same consistent CTE waterfall architecture. Field
 
 ## V3 - dbt Lineage Graph
 
-![Simbank Lineage Graph](Simbank/docs/images/lineage_graph.png)
+![Simbank Lineage Graph](SimBank/docs/images/lineage_graph.png)
 
 
 -----
