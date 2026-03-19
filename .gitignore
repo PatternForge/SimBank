@@ -14,3 +14,4 @@ simbank_dbt/logs/
 .idea/
 simbank_dbt/.idea/
 logs/
+lineage_output/

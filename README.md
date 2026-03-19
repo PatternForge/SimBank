@@ -4,6 +4,21 @@
 **Version:** 2.0 (see origin story below)
 **Stack:** Python · dbt · Snowflake · sqlglot · LightGBM · PyTorch · Scikit-learn
 
+
+-----
+
+## Quick Summary
+
+SimBank is a synthetic Australian banking platform build to demonstrate production-grade analytics engineering.
+
+- **Python** generates 500k-1M realistic banking records across 4 account types 
+- **dbt + Snowflake** transforms them through a governed pipeline (4 staging models, 3 marts, ~160 fields)
+- **sqlglot** extracts field-level lineage automatically - 5,800+ lineage rows, bi-directional, queryable
+- **networkx** renders lineage graphs showing upstream dependencies and downstream impacts for every field
+
+Built because real banking data was off limits. Everything in it reflects seven years inside Australian financial data.
+
+**github.com/PatternForge/Simbank**
 -----
 
 ## What Is SimBank?
@@ -131,6 +146,37 @@ Each staging model follows the same consistent CTE waterfall architecture. Field
 
 ![Simbank Lineage Graph](SimBank/docs/images/lineage_graph.png)
 
+
+-----
+
+## V3 - Field-Level Lineage Extractor
+
+SimBank includes a fully automated field-level lineage extractor built on sqlglot and networkx.  It parses compiled dbt SQL, resolves wildcard expansions dynamically against Snowflake's INFORMATION_SCHEMA, and produces bi-directional field lineage across every CTE in every model.
+
+![Field Lineage Example](SimBank/docs/images/field_lineage_example.png)
+
+**What it does:**
+- Parses every staging model SQL file using sqlglot
+- Resolves 'SELECT P.*' wildcard expansions by queriying Snowflake column metadata dynamically
+- Traces every field forward (what does this field feed into?) and backward (where does this field come from?)
+- Produces 5,800+ lineage rows across all four staging models in a single run
+- Renders bi-directional lineage graphs showing upstream dependencies and downstream impact
+
+**Usage:**
+
+# Interactive mode - select model, CTE and field
+python simbank_dbt/lineage/run_lineage.py
+
+# Dump all models to CSV
+python simbank_dbt/lineage/run_lineage.py
+
+# Trace a specific field directly
+python simbank_dbt/lineage/run_lineage.py
+
+# NOTE: This requires an .env file in the root folder
+SNOWFLAKE_USER=your_user
+SNOWFLAKE_PASSWORD=your_password
+SNOWFLAKE_ACCOUNT=your_account
 
 -----
 
