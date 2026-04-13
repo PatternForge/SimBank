@@ -15,6 +15,18 @@ SimBank is a synthetic Australian banking platform build to demonstrate producti
 - **dbt + Snowflake** transforms them through a governed pipeline (4 staging models, 3 marts, ~160 fields)
 - **sqlglot** extracts field-level lineage automatically - 5,800+ lineage rows, bi-directional, queryable
 - **networkx** renders lineage graphs showing upstream dependencies and downstream impacts for every field
+- **V4 governance layer** adds code drift, data drift, docs drift, human approval gates and audit trails
+- **Published dbt docs** are versioned, hashed, approved and stored with full lineage context
+
+**Bi‑directional lineage lets you:**
+- Update a field’s transformation and instantly see every downstream field impacted by the change.
+- Trace a broken dashboard field back through every upstream calculation to find the exact source of failure.
+- Troubleshoot data issues by revealing both what a field depends on and what depends on it.
+
+**Governance layer shows:**
+- Code drift detects any change to SQL logic and requires human approval before transformations can change.
+- Data drift compares current Snowflake tables to approved baselines to ensure no unexpected changes enter the pipeline.
+- Docs drift tracks meaningful dbt documentation changes and only updates published docs when approved.
 
 Built because real banking data was off limits. Everything in it reflects seven years inside Australian financial data.
 
@@ -177,6 +189,53 @@ python simbank_dbt/lineage/run_lineage.py
 SNOWFLAKE_USER=your_user
 SNOWFLAKE_PASSWORD=your_password
 SNOWFLAKE_ACCOUNT=your_account
+-----
+
+## V4 — Governance, Drift Detection & Human Approval
+SimBank V4 introduces a full governance layer across the entire dbt/Snowflake pipeline.
+Every execution is validated, compared to baselines, and routed through human approval gates before anything is published.
+
+**What V4 Adds**
+1. Code Drift Detection  
+All SQL models are hashed and compared to the last approved baseline.
+If nothing changed, the pipeline proceeds.
+If code changed, a Slack review is triggered and human approval is required.
+
+2. Data Drift Detection  
+All four source tables are compared against their approved baseline snapshots.
+Row counts, schema, field manifests and combined dataset hashes are validated.
+If the data changed unexpectedly, the run is halted until reviewed.
+
+3. Documentation Drift Detection  
+dbt docs are generated on every run and compared to the last approved docs baseline.
+SimBank uses a meaningful‑content hash that only changes when YAML‑defined documentation changes.
+If code hasn’t changed, docs drift is automatically suppressed.
+
+4. Approval Gates  
+Each drift detector writes a result file and posts a Slack message.
+The pipeline pauses until a human approves the change.
+Approved baselines are written to Snowflake and versioned locally.
+
+5. Published Documentation  
+After approval, dbt docs are published to a versioned folder and indexed.
+Each run produces a permanent, auditable snapshot of the documentation.
+
+6. Full Audit Trail  
+Every run produces:
+run ID, 
+timestamp, 
+drift status, 
+baseline hash, 
+approved hash, 
+reviewer, 
+published docs version
+
+All stored in Snowflake under the GOVERNANCE schema.
+
+**How to run V4**
+
+_Run the full V4 governance workflow_
+- python run_v4.py
 
 -----
 
@@ -298,20 +357,25 @@ Each run generates a unique portfolio snapshot. Expect 500,000 to 1,000,000 rows
 
 Four source file extracts loaded into Snowflake and transformed through a governed dbt pipeline.  Full staging layer across all four account types with consistent 15-CTE waterfall architecture.
 
-**v3 — Field-level Lineage:**
+**v3 — Complete:**
 
 sqlglot parsing, FIELD_LINEAGE table, visual lineage graph, bi-directional (forward/backward) queryable.  Pure Lineage
 
-**v4 — Automated Documentation, Drift Detection & Approval Workflows:**
+**v4 — Complete:**
 
 Automated docs generated on every dbt run, drift detection against baselines, human approval workflows, audit trail.  The full governance layer.
 
-**v5 — AI-Powered Governance Chatbot (concept):**
+**v5 — LLM Governance Layer**  
+Introduce an LLM interface with hallucination, bias and response‑validation controls, ensuring outputs are traceable to underlying data and lineage.
 
-Natural language interface across all of it.  An example would be asking "What fields feed into EXPECTEDCREDITLOSS?", "Has anything drifted since last week?", "Show me the approval history for this field." 
+**v6 — Automated Governance Orchestration**
+Unify lineage, drift detection, and LLM validation into a single automated control framework across the pipeline.
 
-The technical foundation for V5 is being laid in V3 and V4.  The governance data will exist.  THe lineage will be queryable in both directions.  The chatbot is the interface layer on top.
+**v7 — Governance Observability**
+Dashboards providing visibility into lineage, drift events, approvals, and system health across all models.
 
+**v8 — Interactive Data Governance Assistant**
+Extend the LLM interface into a controlled assistant capable of answering analytical and lineage questions with full traceability and auditability.
 -----
 
 ## Requirements
