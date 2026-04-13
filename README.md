@@ -1,7 +1,7 @@
 # SimBank — Synthetic Banking Data Platform
 
 **Author:** Ross K
-**Version:** 2.0 (see origin story below)
+**Version:** 4.0 (see origin story below)
 **Stack:** Python · dbt · Snowflake · sqlglot · LightGBM · PyTorch · Scikit-learn
 
 
