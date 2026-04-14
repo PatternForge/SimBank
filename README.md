@@ -9,7 +9,7 @@
 
 ## Quick Summary
 
-SimBank is a synthetic Australian banking platform build to demonstrate production-grade analytics engineering.
+SimBank is a synthetic Australian banking platform built to demonstrate production-grade analytics engineering.
 
 - **Python** generates 500k-1M realistic banking records across 4 account types 
 - **dbt + Snowflake** transforms them through a governed pipeline (4 staging models, 3 marts, ~160 fields)
@@ -365,17 +365,22 @@ sqlglot parsing, FIELD_LINEAGE table, visual lineage graph, bi-directional (forw
 
 Automated docs generated on every dbt run, drift detection against baselines, human approval workflows, audit trail.  The full governance layer.
 
-**v5 — LLM Governance Layer**  
-Introduce an LLM interface with hallucination, bias and response‑validation controls, ensuring outputs are traceable to underlying data and lineage.
+**v5 — Chatbot Governance Layer**  
+
+Introduce a basic chatbot with hallucination, bias and response‑validation controls, ensuring outputs are traceable to underlying data and lineage.
 
 **v6 — Automated Governance Orchestration**
+
 Unify lineage, drift detection, and LLM validation into a single automated control framework across the pipeline.
 
 **v7 — Governance Observability**
+
 Dashboards providing visibility into lineage, drift events, approvals, and system health across all models.
 
 **v8 — Interactive Data Governance Assistant**
-Extend the LLM interface into a controlled assistant capable of answering analytical and lineage questions with full traceability and auditability.
+
+Extend the Chatbot interface into a controlled assistant capable of answering analytical and lineage questions with full traceability and auditability.
+
 -----
 
 ## Requirements
