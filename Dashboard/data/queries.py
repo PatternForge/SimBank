@@ -1,11 +1,14 @@
 import pandas as pd
-from connection import get_connection
+from Dashboard.data.connection import get_connection
+from Dashboard.config import SNOWFLAKE_SCHEMA, SNOWFLAKE_DATABASE
+GOV = f"{SNOWFLAKE_DATABASE}.{SNOWFLAKE_SCHEMA}"
 
 
 def fetch_df(sql):
     conn = get_connection()
     df = pd.read_sql(sql, conn)
     conn.close()
+    df.columns = [c.lower() for c in df.columns]  # normalize column names
     return df
 
 
@@ -16,18 +19,24 @@ def get_all_fields():
 
 def get_forward_lineage(field):
     sql = f"""
-        select from_field, to_field, layer
+        select
+            source_field as from_field,
+            field_name as to_field,
+            cte_name as layer
         from FIELD_LINEAGE
-        where from_field = '{field}'
+        where field_name = '{field}'
     """
     return fetch_df(sql).to_dict("records")
 
 
 def get_backward_lineage(field):
     sql = f"""
-        select from_field, to_field, layer
+        select
+            field_name as from_field,
+            source_field as to_field,
+            cte_name as layer
         from FIELD_LINEAGE
-        where to_field = '{field}'
+        where source_field = '{field}'
     """
     return fetch_df(sql).to_dict("records")
 
@@ -67,8 +76,8 @@ def get_failure_context(field):
 
 def get_system_metrics():
     return {
-        "healthy_pct": fetch_df("select avg(is_healthy) from FIELD_HEALTH").iloc[0, 0],
-        "broken_fields": fetch_df("select count(*) from FIELD_HEALTH where status='BROKEN'").iloc[0, 0],
-        "open_drifts": fetch_df("select count(*) from FIELD_CHANGE_DIFF").iloc[0, 0],
+        "healthy_pct": fetch_df(f"select avg(is_healthy::int) * 100 as pct from {GOV}.FIELD_HEALTH").iloc[0, 0],
+        "broken_fields": fetch_df(f"select count(*) from {GOV}.FIELD_HEALTH where status='BROKEN'").iloc[0, 0],
+        "open_drifts": fetch_df(f"select count(*) from {GOV}.FIELD_CHANGE_DIFF").iloc[0, 0],
     }
 
