@@ -5,15 +5,17 @@ SimBank V4 - Docs Publisher (dbt 1.5+ compatible)
 import shutil
 from pathlib import Path
 
-# Repo root = SimBank/
-REPO_ROOT = Path(__file__).resolve().parent
+# ---------------------------------------------------------
+# Resolve repo root (Governance/approvals/docs_publisher.py → repo root)
+# ---------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# dbt 1.5+ stores docs under: target/run/<project_name>/
-DBT_DOCS_SOURCE = REPO_ROOT / "target"
-
+# dbt 1.5+ stores docs under: simbank_dbt/target/
+DBT_DOCS_SOURCE = REPO_ROOT / "simbank_dbt" / "target"
 
 # Published docs go here:
 PUBLISH_ROOT = REPO_ROOT / "SimBank" / "docs"
+PUBLISH_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def publish_docs(run_id: str) -> Path:

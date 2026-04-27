@@ -18,9 +18,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SOURCES_DIR = Path("SimBank/sources")
-OUTPUT_DIR = Path("SimBank/Output")
-OUTPUT_DIR.mkdir(exist_ok=True)
+# ---------------------------------------------------------
+# Resolve repo root (Governance/drift/drift_detector.py → repo root)
+# ---------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+SOURCES_DIR = REPO_ROOT / "SimBank" / "sources"
+OUTPUT_DIR = REPO_ROOT / "SimBank" / "Output"
+OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 SNOWFLAKE_CONFIG = {
     "user": os.getenv("SNOWFLAKE_USER"),

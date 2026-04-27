@@ -12,8 +12,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-REPO_ROOT = Path(__file__).resolve().parent
+# ---------------------------------------------------------
+# Resolve repo root (Governance/approvals/slack_approval_handler.py → repo root)
+# ---------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 OUTPUT_DIR = REPO_ROOT / "SimBank" / "Output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 
 SNOWFLAKE_CONFIG = {
@@ -29,11 +35,16 @@ SNOWFLAKE_CONFIG = {
 
 def load_results(run_id: str):
     path = OUTPUT_DIR / f"drift_results_{run_id}.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Drift results not found: {path}")
     with open(path, "r") as f:
         return json.load(f)
 
 
 def post_to_slack(payload):
+    if not SLACK_WEBHOOK_URL:
+        print("⚠ SLACK_WEBHOOK_URL not set — skipping Slack post")
+        return
     requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
     print("✓ Data message posted to Slack")
 
@@ -61,7 +72,12 @@ def build_message(results):
     run_id = results["run_id"]
     manifest_hash = results["manifest_hash"][:12]
     return {
-        "text": f"📊 Data Drift Check\nRun ID: `{run_id}`\nManifest: `{manifest_hash}...`\nPress ENTER locally to approve."
+        "text": (
+            f"📊 Data Drift Check\n"
+            f"Run ID: `{run_id}`\n"
+            f"Manifest: `{manifest_hash}...`\n"
+            f"Press ENTER locally to approve."
+        )
     }
 
 

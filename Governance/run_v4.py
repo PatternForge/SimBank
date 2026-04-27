@@ -33,37 +33,45 @@ def wait_for_enter(label: str):
 
 
 def main():
-    repo_root = Path(__file__).resolve().parent
+    # Governance/run_v4.py → repo root is two levels up
+    repo_root = Path(__file__).resolve().parents[1]
+
     output_dir = repo_root / "SimBank" / "Output"
     output_dir2 = repo_root / "Output"
-
 
     print("\n╔══════════════════════════════════════╗")
     print("║   SimBank V4 - Full Workflow        ║")
     print("╚══════════════════════════════════════╝\n")
 
     # Step 1: Code Drift
-    run_step("python code_drift_detector.py", "Step 1: Code Drift Detection")
+    run_step("python -m Governance.drift.code_drift_detector",
+             "Step 1: Code Drift Detection")
     code_run_id = extract_run_id("code_drift_results_*.json", output_dir)
     print(f"✓ Code Run ID: {code_run_id}")
 
-    run_step(f"python code_approval_handler.py --run-id {code_run_id}", "Step 2: Code Approval Gate")
+    run_step(f"python -m Governance.approvals.code_approval_handler --run-id {code_run_id}",
+             "Step 2: Code Approval Gate")
     wait_for_enter("Code review posted to Slack.")
-    run_step(f"python code_approval_handler.py --run-id {code_run_id} --approve", "Applying Code Approval")
+    run_step(f"python -m Governance.approvals.code_approval_handler --run-id {code_run_id} --approve",
+             "Applying Code Approval")
 
     # Step 3: Data Drift
-    run_step("python drift_detector.py", "Step 3: Data Drift Detection")
+    run_step("python -m Governance.drift.drift_detector",
+             "Step 3: Data Drift Detection")
     data_run_id = extract_run_id("drift_results_*.json", output_dir)
     print(f"✓ Data Run ID: {data_run_id}")
 
-    run_step(f"python slack_approval_handler.py --run-id {data_run_id}", "Step 4: Data Approval Gate")
+    run_step(f"python -m Governance.approvals.slack_approval_handler --run-id {data_run_id}",
+             "Step 4: Data Approval Gate")
     wait_for_enter("Data review posted to Slack.")
-    run_step(f"python slack_approval_handler.py --run-id {data_run_id} --approve", "Applying Data Approval")
+    run_step(f"python -m Governance.approvals.slack_approval_handler --run-id {data_run_id} --approve",
+             "Applying Data Approval")
 
     # Step 5: Docs Drift
-    run_step("python docs_drift_detector.py", "Step 5: Docs Drift Detection")
-    pointer_file = None
+    run_step("python -m Governance.drift.docs_drift_detector",
+             "Step 5: Docs Drift Detection")
 
+    pointer_file = None
     if (output_dir2 / "latest_docs_run_id.txt").exists():
         pointer_file = output_dir2 / "latest_docs_run_id.txt"
     elif (output_dir / "latest_docs_run_id.txt").exists():
@@ -74,9 +82,11 @@ def main():
     docs_run_id = pointer_file.read_text().strip()
     print(f"✓ Docs Run ID: {docs_run_id}")
 
-    run_step(f"python docs_approval_handler.py --run-id {docs_run_id}", "Step 6: Docs Approval & Publish")
+    run_step(f"python -m Governance.approvals.docs_approval_handler --run-id {docs_run_id}",
+             "Step 6: Docs Approval & Publish")
     wait_for_enter("Docs review posted to Slack.")
-    run_step(f"python docs_approval_handler.py --run-id {docs_run_id} --approve", "Publishing Docs & Writing Baseline")
+    run_step(f"python -m Governance.approvals.docs_approval_handler --run-id {docs_run_id} --approve",
+             "Publishing Docs & Writing Baseline")
 
     print("\n" + "=" * 60)
     print("✅ V4 Workflow Complete")

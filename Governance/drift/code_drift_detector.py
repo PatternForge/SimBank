@@ -17,13 +17,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Paths (repo root)
-MODELS_DIR = Path("simbank_dbt/models")
+# ---------------------------------------------------------
+# Resolve repo root (Governance/drift/code_drift_detector.py → repo root)
+# ---------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+MODELS_DIR = REPO_ROOT / "simbank_dbt" / "models"
 STAGING_DIR = MODELS_DIR / "staging"
 MART_DIR = MODELS_DIR / "mart"
-OUTPUT_DIR = Path("SimBank/Output")
-OUTPUT_DIR.mkdir(exist_ok=True)
 
+OUTPUT_DIR = REPO_ROOT / "SimBank" / "Output"
+OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
+
+# ---------------------------------------------------------
+# Snowflake config
+# ---------------------------------------------------------
 SNOWFLAKE_CONFIG = {
     "user": os.getenv("SNOWFLAKE_USER"),
     "password": os.getenv("SNOWFLAKE_PASSWORD"),

@@ -13,8 +13,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-REPO_ROOT = Path(__file__).resolve().parent
+# ---------------------------------------------------------
+# Resolve repo root (Governance/approvals/code_approval_handler.py → repo root)
+# ---------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 OUTPUT_DIR = REPO_ROOT / "SimBank" / "Output"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+MODELS_DIR = REPO_ROOT / "simbank_dbt" / "models"
+
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
 
 SNOWFLAKE_CONFIG = {
@@ -30,17 +38,21 @@ SNOWFLAKE_CONFIG = {
 
 def load_results(run_id: str):
     path = OUTPUT_DIR / f"code_drift_results_{run_id}.json"
+    if not path.exists():
+        raise FileNotFoundError(f"Drift results not found: {path}")
     with open(path, "r") as f:
         return json.load(f)
 
 
 def post_to_slack(payload):
+    if not SLACK_WEBHOOK_URL:
+        print("⚠ SLACK_WEBHOOK_URL not set — skipping Slack post")
+        return
     requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
     print("✓ Code message posted to Slack")
 
 
 def write_code_baseline(run_id: str):
-    MODELS_DIR = REPO_ROOT / "simbank_dbt" / "models"
     sql_files = {}
 
     for folder in ["staging", "mart"]:

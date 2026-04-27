@@ -19,7 +19,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-REPO_ROOT = Path(__file__).resolve().parent
+# ---------------------------------------------------------
+# Resolve repo root (Governance/drift/docs_drift_detector.py → repo root)
+# ---------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 DBT_PROJECT_DIR = REPO_ROOT / "simbank_dbt"
 DBT_TARGET = DBT_PROJECT_DIR / "target"
@@ -196,8 +199,10 @@ def main():
     run_id = generate_run_id()
     print(f"\nRun ID: {run_id}\n")
 
+    # Write pointer file
     (OUTPUT_DIR2 / "latest_docs_run_id.txt").write_text(run_id)
 
+    # Skip docs drift if code unchanged
     if code_is_unchanged():
         print("✓ NO DOCS DRIFT DETECTED (code unchanged)")
         results = {
