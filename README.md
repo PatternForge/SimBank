@@ -11,14 +11,14 @@ SimBank is **proactive governance infrastructure** for analytics engineering. In
 
 ### Architecture
 
-![Architecture Diagram](SimBank/docs/images/architecture_diagram.png)
+![Architecture Diagram](SimBank/docs/images/lineage_graph.png)
 *Full V6 pipeline: Python generation → dbt transformation → lineage extraction → drift detection → approval gates → docs publishing → governance dashboard*
 
 ---
 
 ### Bi-Directional Lineage
 
-![Bi-Directional Lineage](SimBank/docs/images/lineage_graph.png)
+![Bi-Directional Lineage](SimBank/docs/images/field_lineage_example.png)
 *Trace any field forward (what breaks if I change this?) or backward (what caused this to break?)*
 
 ---
