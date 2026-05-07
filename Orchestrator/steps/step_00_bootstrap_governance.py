@@ -1,8 +1,13 @@
 import os
 import snowflake.connector
+from dotenv import load_dotenv
+from pathlib import Path
 
 
 def run(state):
+    REPO_ROOT = Path(__file__).resolve().parents[2]
+    load_dotenv(REPO_ROOT / ".env")
+
     db = os.getenv("SNOWFLAKE_DATABASE")
     gov = os.getenv("SNOWFLAKE_GOVT")
 
@@ -59,7 +64,21 @@ def run(state):
         )
     """)
 
+    cur.execute(f"""
+        create table if not exists {db}.{gov}.FIELD_BLAST_RADIUS (
+            run_id string,
+            field_fqn string,
+            downstream_fields int,
+            downstream_ctes int,
+            downstream_models int,
+            downstream_domains int,
+            blast_radius_score float,
+            created_at timestamp default current_timestamp()
+        )
+    """)
+
     cur.close()
     conn.close()
 
-    state.mark("governance_bootstrap", "success")
+    if state is not None:
+        state.mark("governance_bootstrap", "success")

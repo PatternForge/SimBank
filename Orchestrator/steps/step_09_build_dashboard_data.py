@@ -1,16 +1,85 @@
 import os
-import json
-from pathlib import Path
-from dotenv import load_dotenv
+import sys
 import snowflake.connector
+
+from Orchestrator.governance.graph_engine import build_graph, downstream_fields
+
+print("[STEP 09] Loaded Python:", sys.executable)
 
 
 def run(state):
-    REPO_ROOT = Path(__file__).resolve().parents[2]
-    load_dotenv(REPO_ROOT / ".env")
+
+    print("\n" + "=" * 60)
+    print("[STEP 09] Build Dashboard Data")
+    print("=" * 60)
+
+    raw = state.metadata.get("lineage", [])
+    print(f"[STEP 09] Raw lineage rows: {len(raw)}")
+
+    if not raw:
+        state.mark("governance_dashboard_data", "skipped", "No lineage metadata")
+        return
+
+    lineage = []
+
+    for r in raw:
+        src_cte = r.get("SOURCE_CTE")
+        src_col = r.get("SOURCE_FIELD")
+        tgt_cte = r.get("CTE_NAME")
+        tgt_col = r.get("FIELD_NAME")
+
+        from_field = r.get("from_field")
+        to_field = r.get("to_field")
+
+        if from_field and to_field:
+            lineage.append({"from_field": from_field, "to_field": to_field})
+            continue
+
+        if src_cte and src_col and tgt_cte and tgt_col:
+            lineage.append({
+                "from_field": f"{src_cte}.{src_col}",
+                "to_field": f"{tgt_cte}.{tgt_col}",
+            })
+
+    print(f"[STEP 09] Normalised edges: {len(lineage)}")
+
+    if not lineage:
+        state.mark("governance_dashboard_data", "skipped", "No usable lineage")
+        return
+
+    g = build_graph(lineage)
+
+    print(f"[STEP 09] Graph nodes: {len(g.nodes())}")
+    print(f"[STEP 09] Graph edges: {len(g.edges())}")
+
+    if len(g.nodes()) == 0:
+        state.mark("governance_dashboard_data", "skipped", "Empty graph")
+        return
+
+    records = []
+
+    for node in g.nodes():
+        downstream = downstream_fields(g, node)
+
+        records.append({
+            "field_fqn": node,
+            "downstream_fields": len(downstream),
+            "downstream_ctes": 0,
+            "downstream_models": 0,
+            "downstream_domains": 0,
+            "blast_radius_score": float(len(downstream)),
+        })
+
+    print(f"[STEP 09] Records to insert: {len(records)}")
+
+    if not records:
+        state.mark("governance_dashboard_data", "skipped", "No graph nodes")
+        return
 
     db = os.getenv("SNOWFLAKE_DATABASE")
     gov = os.getenv("SNOWFLAKE_GOVT")
+
+    print(f"[STEP 09] Target table: {db}.{gov}.FIELD_BLAST_RADIUS")
 
     conn = snowflake.connector.connect(
         account=os.getenv("SNOWFLAKE_ACCOUNT"),
@@ -18,102 +87,59 @@ def run(state):
         password=os.getenv("SNOWFLAKE_PASSWORD"),
         role=os.getenv("SNOWFLAKE_ROLE"),
         warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
+        login_timeout=20,
     )
+
     cur = conn.cursor()
 
-    # Ensure deterministic session
-    cur.execute(f"USE DATABASE {db}")
-    cur.execute(f"USE SCHEMA {db}.{gov}")
+    run_id = state.run_id
 
-    cur.execute(f"""
-        create table if not exists {db}.{gov}.FIELD_CATALOG (
-            field_fqn string,
-            model_name string,
-            cte_name string,
-            field_name string,
-            source_cte string,
-            source_field string
+    delete_sql = f"""
+        DELETE FROM {db}.{gov}.FIELD_BLAST_RADIUS
+        WHERE run_id = %s
+    """
+
+    print(f"[STEP 09] Deleting existing rows for run_id={run_id}")
+    cur.execute(delete_sql, (run_id,))
+    print(f"[STEP 09] Deleted rows: {cur.rowcount}")
+
+    insert_sql = f"""
+        INSERT INTO {db}.{gov}.FIELD_BLAST_RADIUS (
+            run_id,
+            field_fqn,
+            downstream_fields,
+            downstream_ctes,
+            downstream_models,
+            downstream_domains,
+            blast_radius_score
         )
-    """)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """
 
-    cur.execute(f"""
-        create table if not exists {db}.{gov}.FIELD_HEALTH (
-            field_fqn string,
-            status string,
-            reason string,
-            is_healthy boolean
+    rows = [
+        (
+            run_id,
+            r["field_fqn"],
+            r["downstream_fields"],
+            r["downstream_ctes"],
+            r["downstream_models"],
+            r["downstream_domains"],
+            r["blast_radius_score"],
         )
-    """)
+        for r in records
+    ]
 
-    cur.execute(f"""
-        create table if not exists {db}.{gov}.FIELD_CHANGE_DIFF (
-            field_fqn string,
-            change_type string,
-            detail string
-        )
-    """)
+    print("[STEP 09] Bulk inserting records...")
 
-    lineage_rows = state.metadata.get("lineage", [])
+    cur.executemany(insert_sql, rows)
 
-    catalog_rows = []
-    for r in lineage_rows:
-        fqn = f"{r['CTE_NAME']}.{r['FIELD_NAME']}"
-        catalog_rows.append((
-            fqn,
-            r["MODEL_NAME"],
-            r["CTE_NAME"],
-            r["FIELD_NAME"],
-            r["SOURCE_CTE"],
-            r["SOURCE_FIELD"],
-        ))
+    conn.commit()
 
-    cur.execute(f"truncate table {db}.{gov}.FIELD_CATALOG")
-    cur.executemany(f"""
-        insert into {db}.{gov}.FIELD_CATALOG (
-            field_fqn, model_name, cte_name, field_name, source_cte, source_field
-        ) values (%s, %s, %s, %s, %s, %s)
-    """, catalog_rows)
-
-    broken = set(state.metadata.get("broken_fields", []))
-
-    health_rows = []
-    for r in catalog_rows:
-        fqn = r[0]
-        if fqn in broken:
-            health_rows.append((fqn, "BROKEN", "Detected in drift", False))
-        else:
-            health_rows.append((fqn, "OK", None, True))
-
-    cur.execute(f"truncate table {db}.{gov}.FIELD_HEALTH")
-    cur.executemany(f"""
-        insert into {db}.{gov}.FIELD_HEALTH (
-            field_fqn, status, reason, is_healthy
-        ) values (%s, %s, %s, %s)
-    """, health_rows)
-
-    drift_dir = REPO_ROOT / "SimBank" / "Output"
-    drift_files = list(drift_dir.glob("drift_results_*.json"))
-
-    diff_rows = []
-    if drift_files:
-        latest = max(drift_files, key=lambda p: p.stat().st_mtime)
-        with open(latest, "r") as f:
-            drift = json.load(f)
-
-        for table, info in drift.get("column_changes", {}).items():
-            for col, detail in info.items():
-                fqn = f"{table}.{col}"
-                diff_rows.append((fqn, detail.get("type"), json.dumps(detail)))
-
-    cur.execute(f"truncate table {db}.{gov}.FIELD_CHANGE_DIFF")
-    if diff_rows:
-        cur.executemany(f"""
-            insert into {db}.{gov}.FIELD_CHANGE_DIFF (
-                field_fqn, change_type, detail
-            ) values (%s, %s, %s)
-        """, diff_rows)
+    print(f"[STEP 09] Inserted rows: {len(rows)}")
 
     cur.close()
     conn.close()
 
-    state.mark("dashboard", "success")
+    state.mark("governance_dashboard_data", "success")
+
+    print("[STEP 09] DONE")

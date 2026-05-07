@@ -10,12 +10,23 @@ def run(state):
     if not DBT_PROJECT.exists():
         raise FileNotFoundError(f"dbt project not found: {DBT_PROJECT}")
 
+    cwd = str(DBT_PROJECT)
+
     subprocess.run(
-        ["dbt", "run", "--project-dir", str(DBT_PROJECT)],
+        ["dbt", "deps"],
+        cwd=cwd,
         check=True
     )
+
     subprocess.run(
-        ["dbt", "test", "--project-dir", str(DBT_PROJECT)],
+        ["dbt", "run", "--project-dir", cwd],
+        cwd=cwd,
+        check=True
+    )
+
+    subprocess.run(
+        ["dbt", "test", "--project-dir", cwd],
+        cwd=cwd,
         check=True
     )
 

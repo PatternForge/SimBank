@@ -17,14 +17,13 @@ def run(state):
         check=True,
     )
 
-    # 2. Connect to Snowflake
     conn = snowflake.connector.connect(
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
         account=os.getenv("SNOWFLAKE_ACCOUNT"),
         warehouse=os.getenv("SNOWFLAKE_WAREHOUSE", "SIMBANK_WH"),
         database="SIMBANK",
-        schema="RAW",
+        schema="GOVERNANCE",
         role=os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
     )
     cur = conn.cursor()
@@ -36,7 +35,7 @@ def run(state):
             FIELD_NAME,
             SOURCE_CTE,
             SOURCE_FIELD
-        FROM SIMBANK.RAW.FIELD_LINEAGE
+        FROM SIMBANK.GOVERNANCE.FIELD_LINEAGE
     """)
 
     rows = cur.fetchall()

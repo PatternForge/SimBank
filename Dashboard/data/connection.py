@@ -20,4 +20,3 @@ def get_connection():
         database=SNOWFLAKE_DATABASE,
         schema=SNOWFLAKE_SCHEMA,
     )
-

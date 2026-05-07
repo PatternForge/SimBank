@@ -15,4 +15,3 @@ def render_lineage_graph(root, edges, direction='forward'):
         dot.edge(src, tgt)
 
     st.graphviz_chart(dot, use_container_width=True)
-

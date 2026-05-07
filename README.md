@@ -86,7 +86,7 @@ cp .env.example .env
 
 ```bash
 # Run the complete V6 governance workflow
-python Orchestrator/run.py
+python -m Orchestrator.run
 
 # Follow the prompts:
 # - Code drift detection → review → approve
