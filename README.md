@@ -1,46 +1,95 @@
-## SimBank — Proactive Analytics Engineering Platform
-Synthetic Banking Data · Field-Level Lineage · Drift Detection · Governance Automation
+# SimBank — Trust-First Analytics Engineering Platform  
 
-**Author:** Ross K
-**Version:** 6.0 (see origin story below)
-**Stack:** Python · dbt · Snowflake · sqlglot · LightGBM · PyTorch · Scikit-learn
+**I'm an Analytics Engineer who builds data systems that stay honest under pressure.**
 
-SimBank is **proactive governance infrastructure** for analytics engineering. Instead of reacting to broken dashboards, it prevents failures before deployment.
+SimBank is the infrastructure that came out of learning, the hard way, that AI-assisted pipelines can fail silently — and that the answer isn't better testing. It's better governance.
 
------
+**SimBank is a trust‑first platform — built to catch what testing, monitoring, and AI‑assisted development all miss.**
 
-### Architecture
+---
+
+## The Incident That Built This
+
+During a modularisation of the data generation layer, AI-assisted code introduced a silent calculation error:
+
+```python
+# AI-generated — syntactically correct, semantically wrong
+Interest_Accrued = Balance * Rate * Term / 12 / 12   # double division
+
+# Correct
+Interest_Accrued = Balance * Rate * (DaysSinceSettlement / 365)
+```
+
+The formula compiled. The values looked plausible. Tests passed. The error propagated silently through `EAD`, `OnBalanceExposure`, and `FundingCost` until a manual field-by-field rebuild caught it.
+
+**The problem wasn't the AI. The problem was a system with no way to catch what testing misses.**
+
+SimBank is the engineered response to that failure mode.
+
+---
+
+## What SimBank Is
+
+A fully orchestrated, end-to-end analytics engineering platform built on synthetic banking data.
+
+It demonstrates how to build data systems where:
+
+- Every field dependency is traceable in both directions
+- Drift in code, data, or documentation is detected and flagged before deployment
+- Nothing propagates without human approval
+- Every approval is recorded with who, when, what drifted, and what was affected
+- AI can assist — but cannot modify its own controls
+
+**This is a governance architecture that applies to any pipeline where AI is writing production code.**
+
+---
+
+## Architecture
+*Full V6 pipeline: Python generation → dbt transformation → lineage extraction → drift detection → approval gates → docs publishing → governance dashboard*
+
 
 ![Architecture Diagram](SimBank/docs/images/lineage_graph.png)
-*Full V6 pipeline: Python generation → dbt transformation → lineage extraction → drift detection → approval gates → docs publishing → governance dashboard*
 
 ---
 
 ### Bi-Directional Lineage
+*Trace any field forward (what breaks if I change this?) or backward (what caused this to break?)*
 
 ![Bi-Directional Lineage](SimBank/docs/images/field_lineage_example.png)
-*Trace any field forward (what breaks if I change this?) or backward (what caused this to break?)*
 
 ---
 
-### What This Does
+---
 
-SimBank is **proactive governance infrastructure** for analytics engineering. Instead of reacting to broken dashboards, it prevents failures before deployment.
+## What This Demonstrates
 
-**The shift:**
-- **Reactive:** "The dashboard broke. Trace back through 47 fields to find the error."
-- **Proactive:** "You're about to change LGD. Here are the 47 downstream fields that will be impacted. Review them now before deploying."
+- Structured, reproducible transformations with consistent modelling patterns
+- Bi-directional field-level lineage: *what breaks if I change this?* and *what caused this to break?*
+- Three-layer drift detection across code, data, and documentation
+- Human-in-the-loop approval gates with full audit trail
+- AI-assisted schema design, validated end-to-end
+- Read-only LLM governance interface (V7 — in development): query governance state, hallucination-safe responses grounded strictly in lineage + drift data, LLM cannot mutate governance state
+- Adversarial testing framework (V8 — planned): stress-test the governance engine itself
+- Independent assurance layer (V10 — planned): cross-validates governance outputs for consistency
 
-**Core capabilities:**
-- **Impact Analysis** — Select any field, see every downstream dependency instantly
-- **Root Cause Analysis** — Select any broken field, trace it back to the source
-- **Drift Detection** — Code, data, and docs are hashed and compared to approved baselines
-- **Human Approval Gates** — Nothing deploys without explicit sign-off
-- **Full Audit Trail** — Every change, approval, and drift event stored in Snowflake
+**SimBank is a trust-first platform — built to catch what testing, monitoring, and AI-assisted development all miss.**
 
-Proactive Analytics Engineering means detecting, explaining, and preventing failures before deployment — using lineage, drift detection, approvals, and explainability instead of waiting for dashboards to break.
+---
 
-**Built after AI-assisted code introduced a silent calculation error** that propagated through a regulatory pipeline undetected. The governance system that caught it is what you're looking at.
+## Roadmap
+
+| Version | Status | What it adds |
+|---|---|---|
+| V1 — Data Generation | ✅ Deployed | Synthetic banking data, 160 fields |
+| V2 — dbt Transformation | ✅ Deployed | Governed CTE waterfall |
+| V3 — Field-Level Lineage | ✅ Deployed | 5,800+ bi-directional dependencies |
+| V4 — Drift Detection & Approval Gates | ✅ Deployed | Human-in-the-loop governance |
+| V5 — Full Orchestration | ✅ Deployed | Single-command end-to-end pipeline |
+| V6 — Governance Dashboard | ✅ Current | Impact analysis, root cause, system health |
+| V7 — LLM Query Interface | 🔨 In development | Natural language governance queries — read-only, hallucination-controlled |
+| V8 — Adversarial Testing | 📋 Planned | Stress-test governance under failure conditions |
+| V9 — Governance Explainability | 📋 Planned | Plain-language lineage and drift narratives |
+| V10 — Independent Assurance Layer | 📋 Planned | Cross-validates governance outputs for consistency |
 
 ---
 ### Quick Start (5 lines)
@@ -51,7 +100,10 @@ Proactive Analytics Engineering means detecting, explaining, and preventing fail
 4. `python Orchestrator/run.py`
 5. Approve drift gates when prompted
 
-### Quick Start (detailed)
+--- 
+
+<details>
+<summary><h2>Quick Start (detailed)</h2></summary>
 
 #### Prerequisites
 - Python 3.9+
@@ -105,90 +157,35 @@ python -m Orchestrator.run
 
 **Time:** ~4 minutes end-to-end
 
+
 #### Launch the Governance Dashboard
 
 ```bash
 streamlit run Dashboard/app.py
 ```
 
-**Dashboard views:**
-- **Impact Analysis** — Select a field, see all downstream impacts before deploying a change
-- **Root Cause Analysis** — Select a broken field, trace it back through upstream dependencies
-- **System Health** — Field health %, broken field count, open drift events
 
----
+</details>
+
+--- 
 
 <details>
-<summary><h2>The Governance Story — Why This Exists</h2></summary>
+<summary><h2>Background Story — Why This Exists</h2></summary>
 
-SimBank started as a way to learn dbt and Snowflake. It became AI governance infrastructure.
+I spent seven years as an Analytics Engineer / Data Analyst at an Australian bank feeding APRA regulatory models — capital adequacy, ECL provisioning, liquidity stress testing, funds transfer pricing.
 
-**The incident:**
+Python was blocked on production systems. Real customer data was off-limits. So I built a synthetic environment that behaves like the real thing: same distributions, same edge cases, same structural constraints — no customer data, no regulatory risk.
 
-During modularization of the Python data generation layer, AI-assisted code introduced a silent calculation error:
+The governance layer wasn't planned. It emerged from the incident above. Once the problem became visible — that AI-generated code can be syntactically valid, semantically wrong, and completely invisible to standard testing — the architecture followed naturally.
 
-```python
-# Incorrect formula (AI-generated)
-Interest_Accrued = Balance * Rate * Term / 12 / 12  # Wrong: double division
-
-# Correct formula
-Interest_Accrued = Balance * Rate * (DaysSinceSettlement / 365)
-```
-
-This propagated without errors through downstream fields: `EAD`, `OnBalanceExposure`, `FundingCost`. Traditional testing didn't catch it because the formula was syntactically correct and produced plausible values.
-
-The error was only caught during manual dbt rebuild when every field was interrogated individually against the Python source.
-
-**The problem:**
-
-Without field lineage, validation frameworks, and human approval gates, **AI-generated errors are invisible until someone looks closely enough.**
-
-**The solution:**
-
-SimBank is now built to be that "someone":
-- Bi-directional lineage traces every field dependency automatically
-- Drift detection catches when code changes OR when outputs drift without code changes
-- Human approval gates ensure nothing deploys without review
-- Full audit trail makes every change traceable
-
-The governance architecture that emerged has broader application: **the same principles that make banking data trustworthy are the same principles that make AI systems trustworthy.**
+The same principles that make banking data trustworthy are the same principles that make AI systems trustworthy. That's what SimBank demonstrates.
 
 </details>
 
 ---
 
 <details>
-<summary><h2>Origin Story — SyntheticBank.py</h2></summary>
-
-I spent seven years as a data analyst at an Australian bank feeding APRA regulatory models — capital adequacy, ECL provisioning, liquidity stress testing, funds transfer pricing.
-
-**The constraint:** Python was blocked on production systems for security reasons. Real customer data was off-limits.
-
-**The response:** Build a synthetic environment that mimics the real thing.
-
-SimBank started as a single Python script — `SyntheticBank.py`, still included in this repository. Approximately 1,000 lines, sequential, no separation of concerns.
-
-It's here for two reasons:
-
-1. **Transparency** — Every project starts somewhere. Pretending otherwise serves nobody.
-2. **Contrast** — Reading `SyntheticBank.py` and then looking at the current SimBank package architecture shows how an engineer thinks about refactoring, modularity, and maintainability. The domain logic is identical. The structure is not.
-
-Over time, it evolved into:
-- Fully modular Python package with proper pipeline architecture
-- dbt transformation layer with governed CTE waterfalls
-- Field-level lineage extractor
-- ML model layer
-- Capital stress testing engine
-- Full governance framework with drift detection and approval gates
-
-The constraints that created SimBank exist in every mature financial institution. When you can't use the real thing, build something better.
-
-</details>
-
----
-
-<details>
-<summary><h2>Technical Architecture</h2></summary>
+<summary><h2>Technical detail — data generation, dbt, lineage, governance layers</h2></summary>
 
 ### Data Generation Layer (Python)
 SimBank/
@@ -296,92 +293,6 @@ CLASSIFICATIONS
 </details>
 
 ---
-
-<details>
-<summary><h2>What SimBank Generates</h2></summary>
-
-### Account Types
-- Retail Loans
-- Retail Deposits
-- Business Loans
-- Business Deposits
-
-### Domain Fields — 160 Total
-
-**Core Account Attributes:**  
-Account identifiers, account type, source system, portfolio date, customer linkage
-
-**Balances & Market Values:**  
-Account balance (asset/liability sign conventions), market value, account principal, available balance, limit, advance amounts
-
-**Dates:**  
-Origination date, settlement date, maturity date, days since settlement, days since origination, days until maturity (constrained by borrower age and product type)
-
-**Credit Risk:**  
-LVR, LVR bands, LMI flag, collateral category, arrears amount, arrears days, provisions, impaired flag, defaulted exposure class
-
-**Capital Adequacy (APRA-aligned):**  
-Exposure at default, exposure class, exposure group, exposure sub-class, risk weight, risk-weighted assets (on/off balance), capital charge, capital buffer, regulatory asset class, Basel expected loss, regulatory PD, regulatory LGD
-
-**ECL & IFRS9:**  
-PD, LGD, ECL, Stage 1/2/3 classification, stage-level PD/LGD/ECL, impaired net
-
-**Funds Transfer Pricing:**  
-Base rate, addon rate, basis cost, liquidity rate, transfer rate, transfer spread, funding index, funding cost rate, liquidity premium, expected return
-
-**Amortisation:**  
-Amortisation type (P&I, Interest Only, Bullet), monthly repayment, term, daily/monthly/annual rates
-
-**Affordability:**  
-Monthly income, annual income, loan to income, estimated living expenses, net disposable income, affordability flag, debt service ratio
-
-**Liquidity & Stress Testing:**  
-Liquidity bucket, stable funding flag, interest rate shock impact, credit spread shock impact, FX shock impact, stress-adjusted PD/LGD, stress scenario flag, stress loss estimate, withdrawal risk, macro volatility index
-
-**Customer & Portfolio:**  
-Customer tier, customer risk segment, portfolio segment, industry sector, cross-sell flag, group exposure rank, relationship length, vintage, geographic region, currency
-
-**Profitability:**  
-RAROC, funding cost, fees charged, operational cost, interest accrued
-
-</details>
-
----
-
-<details>
-<summary><h2>Version History & Roadmap</h2></summary>
-
-### V1 — Python Data Generation ✅ **Deployed**
-Synthetic banking data generator producing 500k-1M APRA-aligned records across 4 account types with 160 domain fields.
-
-### V2 — dbt Transformation Layer ✅ **Deployed**
-Four source extracts loaded into Snowflake and transformed through governed dbt pipeline. Consistent 15-CTE waterfall architecture across all staging models.
-
-### V3 — Field-Level Lineage ✅ **Deployed**
-sqlglot parsing, bi-directional lineage extraction, 5,800+ field dependencies written to Snowflake, visual lineage graphs.
-
-### V4 — Governance & Drift Detection ✅ **Deployed**
-Code drift, data drift, docs drift detection. Human approval gates. Full audit trail in Snowflake GOVERNANCE schema.
-
-### V5 — Full Automation ✅ **Deployed**
-Single orchestrator (`Orchestrator/run.py`) that runs entire pipeline: data generation → dbt → lineage → drift detection → approval gates → docs publish.
-
-### V6 — Governance Dashboard ✅ **Current**
-Streamlit dashboard with Impact Analysis, Root Cause Analysis, and System Health views. Proactive governance before deployment.
-
-### V7 — LLM Query Interface (Planned)
-Basic chatbot with hallucination and bias controls. Query governance state: "What drifted this week?", "Show me fields affected by the ECL change". LLM can query but cannot modify governance data.
-
-### V8 — BluePrint: Adversarial Testing (Planned)
-Synthetic esports dataset that attacks the governance engine. Tests robustness by changing rules, introducing errors, stress-testing approval gates.
-
-### V9 — Full LLM Assistant (Planned)
-Extended chatbot capable of explaining lineage, analyzing drift, and assisting with impact analysis. Full traceability and auditability.
-
-</details>
-
----
-
 <details>
 <summary><h2>ML Layer</h2></summary>
 
@@ -412,93 +323,61 @@ The anomaly detector, customer segmentation, and balance forecasting models are 
 ---
 
 <details>
-<summary><h2>Why This Matters for AI Governance</h2></summary>
-
-SimBank started as a banking data project. It became AI governance infrastructure after AI-assisted code introduced a silent calculation error.
-
-**The problem AI governance must solve:**
-
-When AI generates code, three things can go wrong:
-
-1. **Syntactically correct, semantically wrong** — The formula compiles but calculates the wrong thing
-2. **Correct formula, unexpected distribution** — The logic is right but outputs drift in ways that break downstream systems
-3. **Silent propagation** — Errors cascade through dependent fields without triggering alerts
-
-Traditional validation catches syntax errors. Testing catches known edge cases. **Governance catches everything else.**
-
-**How SimBank catches what testing misses:**
-
-- **Bi-directional lineage** traces every field dependency. Change one calculation, see every downstream impact instantly.
-- **Code + data drift detection** catches when logic changes AND when outputs drift without logic changes.
-- **Human approval gates** ensure nothing propagates without review, even if tests pass.
-- **Full audit trail** makes every change traceable: who approved it, when, why, what drifted.
-
-**This pattern applies to any AI-generated code in production:**
-
-- Claude writing dbt models → needs lineage + drift detection
-- ChatGPT generating SQL transformations → needs approval gates
-- CoPilot enterprise suggesting production changes → needs audit trails
-
-If AI is writing production analytics code, someone needs to solve: **"How do we ensure AI-generated transformations don't silently break critical business logic?"**
-
-SimBank is the answer.
-
-</details>
-
----
-
-## Live Demo — Full V6 Workflow
+<summary><h2>Live Demo — Full V6 Workflow</h2></summary>
 
 Here's what happens when you run `python Orchestrator/run.py`:
 
 ### Step 1: Data Generation (15 seconds)
-INFO: pipeline 15.145s
-INFO: records 606609 fields 160
+INFO: pipeline 15.145s  
+INFO: records 606609 fields 160  
 ✓ Source files written to sources/2026-04-27_14-12-42/
 
 ### Step 2: dbt Transformation (8 seconds)
-Concurrency: 4 threads (target='dev')
+Concurrency: 4 threads (target='dev')  
 ✓ 8/8 models completed successfully
 
 ### Step 3: Lineage Extraction (5 seconds)
-Extracting 5 model(s)...
+Extracting 5 model(s)...  
 ✓ Successfully wrote 5815 rows to FIELD_LINEAGE
 
 ### Step 4: Code Drift Detection
-Found baseline with 8 files
+Found baseline with 8 files  
 ✅ NO CODE DRIFT DETECTED
 
 ### Step 5: Data Drift Detection
-RETAIL_DEPOSITS: ✓ STABLE (540,863 → 540,863, 0.0%)
-RETAIL_LOANS: ✓ STABLE (31,749 → 31,749, 0.0%)
-BUSINESS_DEPOSITS: ✓ STABLE (45,100 → 45,100, 0.0%)
-BUSINESS_LOANS: ✓ STABLE (19,042 → 19,042, 0.0%)
-Combined manifest hash: 5d58895b9a86...
+RETAIL_DEPOSITS: ✓ STABLE (540,863 → 540,863, 0.0%)  
+RETAIL_LOANS: ✓ STABLE (31,749 → 31,749, 0.0%)  
+BUSINESS_DEPOSITS: ✓ STABLE (45,100 → 45,100, 0.0%)  
+BUSINESS_LOANS: ✓ STABLE (19,042 → 19,042, 0.0%)  
+Combined manifest hash: 5d58895b9a86...  
 ✅ NO DRIFT DETECTED
 
 ### Step 6: Docs Drift Detection
-Baseline HASH: 79a51b6660a2...
-Current HASH:  79a51b6660a2...
+Baseline HASH: 79a51b6660a2...  
+Current HASH: 79a51b6660a2...  
 ✅ NO DOCS DRIFT DETECTED
 
 ### Step 7: Human Approval Gates
-✓ Code message posted to Slack
-✓ Data message posted to Slack
-✓ Docs review posted to Slack
-Press ENTER to approve and continue...
+✓ Code message posted to Slack  
+✓ Data message posted to Slack  
+✓ Docs review posted to Slack  
+Press ENTER to approve and continue...  
 [Human reviews, approves]
 
 ### Step 8: Publish & Commit
-✓ Code baseline written to Snowflake
-✓ Data attestation written to Snowflake
-✓ Docs published to versioned folder
+✓ Code baseline written to Snowflake  
+✓ Data attestation written to Snowflake  
+✓ Docs published to versioned folder  
 ✅ V6 Workflow Complete
 
-**Total time:** ~4 minutes from start to finish.
+**Total time:** ~4 minutes end-to-end.
+
+</details>
 
 ---
+<details>
+<summary><h2>Requirements</h2></summary>
 
-## Requirements
 Core dependencies
 pandas
 numpy
@@ -518,6 +397,8 @@ torch
 scikit-learn
 Dashboard
 streamlit
+
+</details>
 
 ---
 
