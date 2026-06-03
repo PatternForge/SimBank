@@ -10,6 +10,8 @@ from Orchestrator.steps import (
     step_03_check_snowflake_env,
     step_04_run_dbt,
     step_05_run_lineage,
+    step_05a_build_field_catalog,
+    step_05b_build_field_health,
     step_06_run_drift,
     step_07_summarise,
     step_08_render_governance_graphs,
@@ -51,6 +53,12 @@ def run():
 
         print("\n[RUN] STEP 05")
         step_05_run_lineage.run(state)
+
+        print("\n[RUN] STEP 05a")
+        step_05a_build_field_catalog.run(state)
+
+        print("\n[RUN] STEP 05b")
+        step_05b_build_field_health.run(state)
 
         print("\n[RUN] STEP 06")
         step_06_run_drift.run(state)

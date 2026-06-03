@@ -95,7 +95,7 @@ It demonstrates how to build data systems where:
 1. Create `.env` from `.env.example`
 2. Activate virtual environment
 3. `pip install -r requirements.txt`
-4. `python Orchestrator/run.py`
+4. `python -m Orchestrator.run`
 5. Approve drift gates when prompted
 
 --- 
