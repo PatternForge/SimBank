@@ -72,8 +72,6 @@ It demonstrates how to build data systems where:
 - Adversarial testing framework (V8 — planned): stress-test the governance engine itself
 - Independent assurance layer (V10 — planned): cross-validates governance outputs for consistency
 
-**SimBank is a trust-first platform — built to catch what testing, monitoring, and AI-assisted development all miss.**
-
 ---
 
 ## Roadmap
