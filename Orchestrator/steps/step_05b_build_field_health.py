@@ -24,17 +24,20 @@ def run(state):
     print("Populating FIELD_HEALTH from FIELD_CATALOG...")
     cur.execute(f"""
         INSERT INTO {db}.{gov}.FIELD_HEALTH (
-            field_fqn,
-            status,
-            reason,
-            is_healthy
-        )
+        field_fqn,
+        status,
+        reason,
+        is_healthy
+    )
         SELECT
-            field_fqn,
-            CASE WHEN source_cte IS NULL THEN 'broken' ELSE 'healthy' END AS status,
-            CASE WHEN source_cte IS NULL THEN 'No upstream lineage' ELSE NULL END AS reason,
-            CASE WHEN source_cte IS NOT NULL THEN TRUE ELSE FALSE END AS is_healthy
-        FROM {db}.{gov}.FIELD_CATALOG
+        field_fqn,
+        CASE WHEN source_cte IS NULL AND source_field IS NULL AND cte_name NOT LIKE 'RAW_%' THEN 'broken' ELSE 'healthy'
+        END AS status,
+        CASE WHEN source_cte IS NULL AND source_field IS NULL AND cte_name NOT LIKE 'RAW_%' 
+        THEN 'No valid upstream lineage' ELSE NULL END AS reason,
+        CASE WHEN source_cte IS NULL AND source_field IS NULL AND cte_name NOT LIKE 'RAW_%' THEN FALSE ELSE TRUE
+        END AS is_healthy
+    FROM {db}.{gov}.FIELD_CATALOG
     """)
 
     print(f"Inserted rows: {cur.rowcount}")

@@ -96,6 +96,28 @@ def run(state):
     """)
 
     cur.execute(f"""
+        CREATE TABLE IF NOT EXISTS {db}.{gov}.DATA_ATTESTATIONS (
+            RUN_ID STRING,
+            MANIFEST_HASH STRING,       
+            STATUS STRING,
+            APPROVED_BY STRING,
+            APPROVED_AT TIMESTAMP
+        )
+    """)
+
+    cur.execute(f"""
+        CREATE TABLE IF NOT EXISTS {db}.{gov}.CODE_BASELINES (
+            RUN_ID STRING,
+            FILE_PATH STRING,
+            FILE_HASH STRING,
+            FILE_CONTENT STRING,        
+            STATUS STRING,
+            APPROVED_BY STRING,
+            APPROVED_AT TIMESTAMP
+        )
+    """)
+
+    cur.execute(f"""
         CREATE TABLE IF NOT EXISTS {db}.{gov}.DOCS_BASELINES (
             RUN_ID STRING,
             DOCS_HASH STRING,
