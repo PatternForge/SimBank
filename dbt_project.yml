@@ -16,13 +16,6 @@ clean-targets:
 models:
   simbank_dbt:
     staging:
-      +schema: STG
-      +materialized: table
-
-    master:
-      +schema: MASTER
-      +materialized: table
-
-    mart:
-      +schema: MART
+      +materialized: view
+    marts:
       +materialized: table

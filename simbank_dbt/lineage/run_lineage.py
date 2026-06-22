@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from pathlib import Path
-
+from html import escape
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
@@ -13,39 +13,10 @@ from sqlglot import exp
 from dotenv import load_dotenv
 load_dotenv()
 
-
-MODELS_DIR = Path("../models/staging")
-OUTPUT_DIR = Path("../../lineage_output")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+MODELS_DIR = REPO_ROOT / "simbank_dbt" / "models"
+OUTPUT_DIR = REPO_ROOT / "lineage_output"
 OUTPUT_DIR.mkdir(exist_ok=True)
-
-
-def get_snowflake_columns(schema, table):
-    try:
-        import snowflake.connector
-        conn = snowflake.connector.connect(
-            user=os.environ.get("SNOWFLAKE_USER"),
-            password=os.environ.get("SNOWFLAKE_PASSWORD"),
-            account=os.environ.get("SNOWFLAKE_ACCOUNT"),
-            warehouse="SIMBANK_WH",
-            database="SIMBANK",
-            schema=schema.upper()
-        )
-        cursor = conn.cursor()
-        cursor.execute(f"""
-            SELECT COLUMN_NAME
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = '{schema.upper()}'
-            AND TABLE_NAME = '{table.upper()}'
-            ORDER BY ORDINAL_POSITION
-        """)
-        cols = {row[0].upper() for row in cursor.fetchall()}
-        cursor.close()
-        conn.close()
-        return cols
-    except Exception as e:
-        print(f" ERROR: {e}")
-        # return set()
-
 
 def resolve_source_fields(alias_map):
     for src_name in alias_map.values():
@@ -56,11 +27,9 @@ def resolve_source_fields(alias_map):
                 return get_snowflake_columns(schema, table)
     return set()
 
-
 def load_sql(path):
     with open(path, "r", encoding="utf-8") as f:
         return html.unescape(f.read())
-
 
 def normalize_dbt(sql):
     sql = re.sub(
@@ -73,6 +42,11 @@ def normalize_dbt(sql):
         lambda m: m.group(1),
         sql
     )
+    sql = re.sub(
+        r"\{\{\s*auto_cast\(['\"](\w+)['\"],\s*['\"](\w+)['\"]\)\s*\}\}",
+        lambda m: f"{m.group(1)}.{m.group(2)}",
+        sql
+    )
     return sql
 
 
@@ -80,10 +54,8 @@ def get_cte_name(cte):
     a = cte.alias
     return a.name.upper() if hasattr(a, "name") else str(a).upper()
 
-
 def get_alias_name(alias):
     return alias.name.upper() if hasattr(alias, "name") else str(alias).upper()
-
 
 def extract_column_dependencies(expr, default_source, alias_map):
     if not isinstance(expr, exp.Expression):
@@ -100,7 +72,6 @@ def extract_column_dependencies(expr, default_source, alias_map):
         deps |= extract_column_dependencies(child, default_source, alias_map)
     return deps
 
-
 def extract_lineage(sql, dialect="snowflake"):
     parsed = sqlglot.parse_one(sql, dialect=dialect)
     cte_list = list(parsed.find_all(exp.CTE))
@@ -115,34 +86,45 @@ def extract_lineage(sql, dialect="snowflake"):
         tables = list(select.find_all(exp.Table))
 
         alias_map = {}
+
         for tbl in tables:
             real = tbl.name.upper()
             alias = get_alias_name(tbl.alias) if tbl.alias else real
             alias_map[alias] = real
 
         default_source = tables[0].name.upper() if len(tables) == 1 else None
+
         field_map = []
         tracked_cols = set()
-
         cte_names_set = set(cte_order)
 
-        for src_name in alias_map.values():
-            if src_name not in cte_names_set and src_name not in output_fields:
-                cols = get_snowflake_columns("RAW", src_name)
-                if cols:
-                    output_fields[src_name] = cols
+        for tbl in tables:
+
+            src_name = tbl.name.upper()
+
+            if src_name in cte_names_set or src_name in output_fields:
+                continue
+
+            if src_name.startswith("STG_"):
+                schema = "STG"
+            elif src_name == "MASTER":
+                schema = "MASTER"
+            else:
+                schema = "RAW"
+
+            cols = get_snowflake_columns(schema, src_name)
+
+            if cols:
+                output_fields[src_name] = cols
 
         for proj in select.expressions:
-
             if isinstance(proj, exp.Alias):
-                # Explicitly named field: P.ACCOUNTBALANCE * 1.1 AS ADJUSTEDBALANCE
                 out_col = get_alias_name(proj.alias)
                 deps = extract_column_dependencies(proj.this, default_source, alias_map)
                 field_map.append((out_col, deps))
                 tracked_cols.add(out_col)
 
             elif isinstance(proj, exp.Column) and proj.name == "*":
-                # P.* — expand all fields from the upstream CTE that P resolves to
                 src_alias = proj.table.upper() if proj.table else None
                 src = alias_map.get(src_alias, src_alias) if src_alias else default_source
                 for col in output_fields.get(src, set()):
@@ -150,8 +132,8 @@ def extract_lineage(sql, dialect="snowflake"):
                         field_map.append((col, {(src, col)}))
                         tracked_cols.add(col)
 
+
             elif isinstance(proj, exp.Star):
-                # Bare * without table qualifier — expand from default source
                 for tbl in tables:
                     src = tbl.name.upper()
                     for col in output_fields.get(src, set()):
@@ -160,7 +142,6 @@ def extract_lineage(sql, dialect="snowflake"):
                             tracked_cols.add(col)
 
             elif isinstance(proj, exp.Column):
-                # Simple column reference: P.ACCOUNTBALANCE or ACCOUNTBALANCE
                 out_col = proj.name.upper()
                 if proj.table:
                     src = alias_map.get(proj.table.upper(), proj.table.upper())
@@ -174,7 +155,6 @@ def extract_lineage(sql, dialect="snowflake"):
         lineage.append({"cte": cte_name, "field_map": field_map})
 
     return lineage
-
 
 def build_lineage_table(lineage, model_name):
     rows = []
@@ -199,7 +179,6 @@ def build_lineage_table(lineage, model_name):
                 })
     return rows
 
-
 def build_cte_dag(sql, dialect="snowflake"):
     parsed = sqlglot.parse_one(sql, dialect=dialect)
     G = nx.DiGraph()
@@ -214,7 +193,6 @@ def build_cte_dag(sql, dialect="snowflake"):
                 G.add_edge(upstream, name)
     return G
 
-
 def build_lineage_graph(df):
     G = nx.DiGraph()
     for r in df.itertuples():
@@ -225,11 +203,10 @@ def build_lineage_graph(df):
                 G.add_edge(s, t)
     return G
 
-
 def plot_split_lineage(G, cte_dag, cte, field, model_name):
     target = f"{cte}.{field}"
     if target not in G.nodes:
-        print(f"\n  No lineage found for {cte}.{field} — check spelling or extraction coverage.")
+        print(f"\n  No lineage found for {cte}.{field}")
         return
 
     topo = list(nx.topological_sort(cte_dag))
@@ -317,18 +294,30 @@ def plot_split_lineage(G, cte_dag, cte, field, model_name):
 
 
 def discover_models():
-    return sorted(p.stem for p in MODELS_DIR.glob("*.sql"))
+    return sorted(p.stem for p in MODELS_DIR.rglob("*.sql"))
 
 
 def load_model(model_name):
-    path = MODELS_DIR / f"{model_name}.sql"
-    sql_raw = load_sql(path)
-    sql = normalize_dbt(sql_raw)
-    lineage = extract_lineage(sql)
+    # 1. Locate compiled SQL
+    compiled_root = REPO_ROOT / "simbank_dbt" / "target" / "compiled"
+    compiled_files = list(compiled_root.rglob(f"{model_name}.sql"))
+
+    if not compiled_files:
+        raise FileNotFoundError(f"Compiled SQL not found for model: {model_name}")
+
+    compiled_path = compiled_files[0]
+    sql = compiled_path.read_text()
+
+    # 2. Parse compiled SQL (no Jinja)
+    dialect = "snowflake"
+    lineage = extract_lineage(sql, dialect=dialect)
+
+    # 3. Build lineage structures
     rows = build_lineage_table(lineage, model_name)
     df = pd.DataFrame(rows)
-    cte_dag = build_cte_dag(sql)
+    cte_dag = build_cte_dag(sql, dialect=dialect)
     G = build_lineage_graph(df)
+
     return df, cte_dag, G, lineage
 
 
@@ -338,7 +327,6 @@ def dump_model(model_name):
     out = OUTPUT_DIR / f"{model_name}_lineage.csv"
     df.to_csv(out, index=False)
     print(f"  Written to {out}  ({len(df)} rows)")
-
 
 def dump_all(models):
     frames = []
@@ -351,6 +339,78 @@ def dump_all(models):
     combined.to_csv(out, index=False)
     print(f"\n  Full dump written to {out}  ({len(combined)} rows across {len(models)} models)")
 
+def get_snowflake_columns(schema, table):
+    try:
+        import snowflake.connector
+        conn = snowflake.connector.connect(
+            user=os.environ.get("SNOWFLAKE_USER"),
+            password=os.environ.get("SNOWFLAKE_PASSWORD"),
+            account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+            warehouse="SIMBANK_WH",
+            database="SIMBANK",
+            schema=schema.upper()
+        )
+        cursor = conn.cursor()
+        cursor.execute(f"""
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = '{schema.upper()}'
+            AND TABLE_NAME = '{table.upper()}'
+            ORDER BY ORDINAL_POSITION
+        """)
+        cols = {row[0].upper() for row in cursor.fetchall()}
+        cursor.close()
+        conn.close()
+        return cols
+    except Exception as e:
+        print(f" WARNING: Snowflake lookup failed for {schema}.{table}: {e}")
+        return set()
+
+def write_to_snowflake(df):
+    try:
+        import snowflake.connector
+
+        df = df.rename(columns={
+            'model': 'MODEL_NAME',
+            'cte': 'CTE_NAME',
+            'field_name': 'FIELD_NAME',
+            'source_cte': 'SOURCE_CTE',
+            'source_field': 'SOURCE_FIELD'
+        })
+
+        conn = snowflake.connector.connect(
+            user=os.environ.get("SNOWFLAKE_USER"),
+            password=os.environ.get("SNOWFLAKE_PASSWORD"),
+            account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+            warehouse="SIMBANK_WH",
+            database="SIMBANK",
+            schema="GOVERNANCE"
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("TRUNCATE TABLE SIMBANK.GOVERNANCE.FIELD_LINEAGE")
+
+        rows_to_insert = []
+        for _, row in df.iterrows():
+            rows_to_insert.append((
+                str(row['MODEL_NAME']) if pd.notna(row['MODEL_NAME']) else None,
+                str(row['CTE_NAME']) if pd.notna(row['CTE_NAME']) else None,
+                str(row['FIELD_NAME']) if pd.notna(row['FIELD_NAME']) else None,
+                str(row['SOURCE_CTE']) if pd.notna(row['SOURCE_CTE']) else None,
+                str(row['SOURCE_FIELD']) if pd.notna(row['SOURCE_FIELD']) else None
+            ))
+
+        sql = r"INSERT INTO SIMBANK.GOVERNANCE.FIELD_LINEAGE (MODEL_NAME, CTE_NAME, FIELD_NAME, SOURCE_CTE, SOURCE_FIELD) VALUES (%s, %s, %s, %s, %s)"
+        cursor.executemany(sql, rows_to_insert)
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print(f"  Successfully wrote {len(rows_to_insert)} rows to FIELD_LINEAGE")
+
+    except Exception as e:
+        print(f"  ERROR writing to Snowflake: {e}")
+        sys.exit(1)
 
 def prompt_choice(label, options):
     print(f"\n  {label}:")
@@ -364,7 +424,6 @@ def prompt_choice(label, options):
         if raw in upper_options:
             return options[upper_options.index(raw)]
         print("  Invalid selection — try again.")
-
 
 def interactive_mode():
     print("\n╔══════════════════════════════╗")
@@ -412,6 +471,123 @@ def interactive_mode():
     plot_split_lineage(G, cte_dag, cte_name, field, model_name)
 
 
+def generate_html_documentation():
+    """Generate interactive HTML documentation from FIELD_LINEAGE table."""
+    try:
+        import snowflake.connector
+        from html import escape
+
+        conn = snowflake.connector.connect(
+            user=os.environ.get("SNOWFLAKE_USER"),
+            password=os.environ.get("SNOWFLAKE_PASSWORD"),
+            account=os.environ.get("SNOWFLAKE_ACCOUNT"),
+            warehouse="SIMBANK_WH",
+            database="SIMBANK",
+            schema="PUBLIC"
+        )
+        cursor = conn.cursor()
+
+        # Fetch all lineage data
+        cursor.execute(
+            "SELECT MODEL_NAME, CTE_NAME, FIELD_NAME, FIELD_TYPE, SOURCE_CTE, SOURCE_FIELD, LOADED_AT FROM SIMBANK.RAW.FIELD_LINEAGE ORDER BY MODEL_NAME, CTE_NAME, FIELD_NAME")
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # Build data structures
+        lineage_df = pd.DataFrame(rows, columns=['MODEL_NAME', 'CTE_NAME', 'FIELD_NAME', 'FIELD_TYPE', 'SOURCE_CTE',
+                                                 'SOURCE_FIELD', 'LOADED_AT'])
+
+        models = sorted(lineage_df['MODEL_NAME'].unique())
+
+        # Generate HTML (header + stats same as before...)
+        html_content = """<!DOCTYPE html>
+...
+"""
+
+        # Add stats
+        total_fields = len(lineage_df)
+        total_models = len(models)
+        total_ctes = lineage_df['CTE_NAME'].nunique()
+        total_sources = lineage_df[lineage_df['SOURCE_CTE'].notna()].shape[0]
+
+        html_content += f"""
+            <div class="stat-card">
+                <div class="number">{total_models}</div>
+                <div class="label">Models</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{total_ctes}</div>
+                <div class="label">CTEs</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{total_fields}</div>
+                <div class="label">Fields</div>
+            </div>
+            <div class="stat-card">
+                <div class="number">{total_sources}</div>
+                <div class="label">Dependencies</div>
+            </div>
+        </div>
+"""
+
+        # Add model sections
+        for model in models:
+            model_data = lineage_df[lineage_df['MODEL_NAME'] == model]
+            ctes = sorted(model_data['CTE_NAME'].unique())
+
+            html_content += f'<div class="model-section">\n'
+            html_content += f'<div class="model-title">{escape(model)}</div>\n'
+
+            for cte in ctes:
+                cte_data = model_data[model_data['CTE_NAME'] == cte].sort_values('FIELD_NAME')
+
+                html_content += f'<div class="cte-group">\n'
+                html_content += f'<div class="cte-name">{escape(cte)}</div>\n'
+
+                for _, row in cte_data.iterrows():
+                    field = escape(str(row['FIELD_NAME']))
+                    source_cte = row['SOURCE_CTE']
+                    source_field = row['SOURCE_FIELD']
+
+                    if source_cte and source_field:
+                        source = f"{escape(str(source_cte))}.{escape(str(source_field))}"
+                    else:
+                        source = "—"
+
+                    source_class = "field-source" if source != "—" else "field-source no-source"
+
+                    html_content += f'''<div class="field-row">
+                        <div class="field-name">{field}</div>
+                        <div class="{source_class}">&larr; {source}</div>
+                    </div>\n'''
+
+                html_content += '</div>\n'
+
+            html_content += '</div>\n'
+
+        # Add footer
+        html_content += f"""
+        <div class="footer">
+            <p>Generated {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')} | SimBank V4 Automated Documentation</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+        # Write to file
+        out = OUTPUT_DIR / "field_lineage_documentation.html"
+        with open(out, "w") as f:
+            f.write(html_content)
+
+        print(f"  Successfully generated HTML documentation: {out}")
+
+    except Exception as e:
+        print(f"  ERROR generating documentation: {e}")
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="run_lineage",
@@ -425,21 +601,39 @@ def main():
             "  python run_lineage.py --dump\n"
         )
     )
+    parser.add_argument("--snowflake", action="store_true", help="Write lineage to Snowflake FIELD_LINEAGE table")
     parser.add_argument("--model", help="Model name (without .sql)")
     parser.add_argument("--cte",   help="CTE name (requires --model)")
     parser.add_argument("--field", help="Field name (requires --model and --cte)")
     parser.add_argument("--dump",  action="store_true", help="Dump all models to a single CSV")
+    parser.add_argument("--docs", action="store_true", help="Generate HTML documentation from FIELD_LINEAGE table")
 
     args = parser.parse_args()
+
+    if args.docs:
+        generate_html_documentation()
+        return
 
     if not any(vars(args).values()):
         interactive_mode()
         return
 
-    if args.dump:
+    if args.dump or args.snowflake:
         models = discover_models()
         print(f"\n  Found {len(models)} model(s).\n")
-        dump_all(models)
+        frames = []
+        for m in models:
+            print(f" Extracting {m}...")
+            df, _, _, _ = load_model(m)
+            frames.append(df)
+        combined = pd.concat(frames, ignore_index=True)
+
+        if args.snowflake:
+            write_to_snowflake(combined)
+        else:
+            out = OUTPUT_DIR / "field_lineage_all.csv"
+            combined.to_csv(out, index=False)
+            print(f"\n Written to {out} ({len(combined)} rows)")
         return
 
     if args.model and not args.cte and not args.field:
